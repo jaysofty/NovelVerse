@@ -1,0 +1,29 @@
+tech stack
+
+---- Backend -----
+npm install express cors dotenv zod @prisma/client
+npm install -D typescript tsx @types/node @types/express @types/cors prisma
+
+-- initialize typescript ----
+npx tsc --init
+
+----- initialize prisma ----
+npx prisma init
+
+--- validate db connection ----
+npx prisma validate
+
+-- format schema ---
+npx prisma format
+
+--- migrate schema to db ----
+npx prisma migrate dev --name init
+
+-- seed data to db ---
+npx tsx prisma/seed.ts
+
+--- auth dependencies ----
+npm install bcryptjs jsonwebtoken
+npm install -D @types/jsonwebtoken
+
+npm install @tanstack/react-query zustand react-hook-form @hookform/resolvers zod sonner

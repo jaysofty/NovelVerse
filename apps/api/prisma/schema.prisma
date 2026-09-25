@@ -1,0 +1,301 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  AUTHOR
+  ADMIN
+}
+
+enum NovelStatus {
+  DRAFT
+  PUBLISHED
+  COMPLETED
+}
+
+enum NovelVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum NovelContentType {
+  TEXT
+  PDF
+  VIDEO
+  AUDIO
+}
+
+enum NovelCreationType {
+  ORIGINAL
+  AI_GENERATED
+  AI_ASSISTED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?
+  role         UserRole @default(USER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile         Profile?
+  novels          Novel[]
+  comments        Comment[]
+  likes           Like[]
+  bookmarks       Bookmark[]
+  following       Follow[]          @relation("Follower")
+  followers       Follow[]          @relation("Following")
+  readingProgress ReadingProgress[]
+  aiGenerations   AIGeneration[]
+}
+
+model Profile {
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  username    String  @unique
+  displayName String?
+  bio         String?
+  avatarUrl   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Novel {
+  id          String          @id @default(uuid())
+  authorId    String
+  title       String
+  slug        String          @unique
+  description String?
+  coverUrl    String?
+  status      NovelStatus     @default(DRAFT)
+  visibility  NovelVisibility @default(PUBLIC)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  author          User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  chapters        Chapter[]
+  genres          NovelGenre[]
+  likes           Like[]
+  bookmarks       Bookmark[]
+  readingProgress ReadingProgress[]
+
+  creationType NovelCreationType @default(ORIGINAL)
+  contentType  NovelContentType  @default(TEXT)
+
+  mediaAssets   MediaAsset[]
+  aiGenerations AIGeneration[]
+
+  @@index([authorId])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model Chapter {
+  id            String @id @default(uuid())
+  novelId       String
+  title         String
+  chapterNumber Int
+  content       String
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  novel           Novel             @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  comments        Comment[]
+  readingProgress ReadingProgress[]
+
+  @@unique([novelId, chapterNumber])
+  @@index([novelId])
+}
+
+model Genre {
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  novels NovelGenre[]
+}
+
+model NovelGenre {
+  novelId String
+  genreId String
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([novelId, genreId])
+  @@index([genreId])
+}
+
+model Comment {
+  id        String  @id @default(uuid())
+  userId    String
+  chapterId String
+  content   String
+  parentId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([chapterId])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Like {
+  id      String @id @default(uuid())
+  userId  String
+  novelId String
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, novelId])
+  @@index([novelId])
+}
+
+model Bookmark {
+  id      String @id @default(uuid())
+  userId  String
+  novelId String
+
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, novelId])
+  @@index([userId])
+  @@index([novelId])
+}
+
+model Follow {
+  id          String @id @default(uuid())
+  followerId  String
+  followingId String
+
+  createdAt DateTime @default(now())
+
+  follower  User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model ReadingProgress {
+  id         String   @id @default(uuid())
+  userId     String
+  novelId    String
+  chapterId  String
+  progress   Float    @default(0)
+  lastReadAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel   Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, novelId])
+  @@index([userId])
+  @@index([novelId])
+  @@index([chapterId])
+}
+
+model MediaAsset {
+  id String @id @default(uuid())
+
+  novelId String
+  novel   Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  type MediaAssetType
+
+  url      String
+  mimeType String?
+  fileName String?
+  fileSize Int?
+
+  duration Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([novelId])
+}
+
+enum MediaAssetType {
+  PDF
+  VIDEO
+  AUDIO
+  IMAGE
+}
+
+model AIGeneration {
+  id String @id @default(uuid())
+
+  novelId String?
+  novel   Novel?  @relation(fields: [novelId], references: [id], onDelete: SetNull)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   AIGenerationType
+  status AIGenerationStatus
+
+  prompt String?
+  model  String?
+
+  resultText String?
+  resultUrl  String?
+  error      String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([novelId])
+  @@index([status])
+}
+
+enum AIGenerationType {
+  NOVEL
+  CHAPTER
+  COVER
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum AIGenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
